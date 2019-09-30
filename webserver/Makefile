@@ -1,4 +1,4 @@
-SRCFILES = IOVServerWSGIApp.py FileManagerApp.py config.sample \
+SRCFILES = Server.py FileManagerApp.py config.sample \
 	LRUCache.py ConnectionPool.py \
     hello.html BasicTemplate.html page.html filepage.html \
     display_data.html display_chandata.html \

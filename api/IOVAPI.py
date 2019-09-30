@@ -1,12 +1,23 @@
 import psycopg2
 import time
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 from dbdig import DbDig
 from psycopg2 import extensions
 import threading
 
 Version = "$Id: IOVAPI.py,v 1.33 2016/02/02 20:11:02 ivm Exp $"
+
+TimeTypes = [
+    ("i",        "bigint"),
+    ("f",        "double precision"),
+    ("t",        "timestamp without time zone"),
+    ("tz",       "timestamp with time zone")
+]
+
+TimeType_to_DB = dict(TimeTypes)
+TimeType_from_DB = dict( [(v, k) for k, v in TimeTypes] )
+
 
 """ comment out
 class   IOVCache:
@@ -97,15 +108,20 @@ class IOVDB:
         self.DB = db
 
     def openFolder(self, name, columns = '*'):
-        return IOVFolder(self, name, columns)
+        f = IOVFolder(self, name, columns)
+        if not f.exists():
+		f = None
+	return f
         
     def createFolder(self, name, columns_and_types, drop_existing=False,
+                time_type = "timestamp",
                 grants={}):
         # grants =  {'username':'r' or 'username':'rw'}
+        assert time_type in TimeType_to_DB
         colnames = [cn for cn, ct in columns_and_types]
         f = self.openFolder(name, colnames)
-        f._createTables(columns_and_types, drop_existing, grants)
-
+        f._createTables(columns_and_types, time_type, drop_existing, grants)
+        return self.openFolder(name, colnames)      # reopen as existing
 
     def getFolders (self):
 
@@ -198,7 +214,8 @@ class IOVSnapshot:
         self.ValidFrom = t0
         self.ValidTo = t1
 
-    def iov(self):  return (self.ValidFrom, self.ValidTo)
+    def iov(self):  
+        return (self.ValidFrom, self.ValidTo)
 
     def columns(self):  return self.Columns
 
@@ -213,6 +230,21 @@ class IOVSnapshot:
     def iovid(self):
         return self.IOVid
 
+ 
+class UTC(tzinfo):
+
+    ZERO = timedelta(0)
+
+    def utcoffset(self, dt):
+        return self.ZERO
+
+    def tzname(self):
+        return "UTC"
+
+    def dst(self, dt):
+        return self.ZERO
+
+
 class IOVFolder:
     def __init__(self, db, name, columns = '*'):
         self.DB = db
@@ -221,11 +253,18 @@ class IOVFolder:
         self.TableData = '%s_data' % (self.Name,)
         self.TableTags = '%s_tags' % (self.Name,)
         self.TableTagIOVs = '%s_tag_iovs' % (self.Name,)
-        self.Columns = columns
-        if self.Columns == '*':
-            self.Columns = self._getDataColumns()
-        self.Colstr = ','.join(self.Columns)
-        self.Cache = self.DB.Cache
+	self.Columns = columns
+        if self.exists():
+		if self.Columns == '*':
+		    self.Columns = self._getDataColumns()
+		self.Colstr = ','.join(self.Columns)
+		self.Cache = self.DB.Cache
+		self.TimeType = None
+		self.WithTimeZone = False
+		col_dict = dict(self.DB._columns(self.TableIOVs))
+		typ = col_dict["begin_time"]
+		assert typ in TimeType_from_DB, "Unknown timestamp column type '%s' in the database" % (typ,)
+		self.TimeType = TimeType_from_DB[typ]
 
     def exists(self):
         return self.DB._tablesExist(self.TableData, self.TableIOVs)
@@ -239,17 +278,34 @@ class IOVFolder:
         columns = self.DB._columns(self.TableData)
         return [(n, t) for n, t in columns if not (n == 'channel' or n.startswith('__'))]       
 
+    def numericToDBTime(self, t):
+        if t is None:   return None
+        assert isinstance(t, (int, float))
+        if self.TimeType == "i":
+            assert isinstance(t, int)
+            return t
+        elif self.TimeType == "f":
+            return float(t)
+        elif self.TimeType == "tz":
+            return datetime.utcfromtimestamp(t).replace(tzinfo=UTC())
+        elif self.TimeType == "t":
+            return datetime.fromtimestamp(t)
+        else:
+            raise ValueError("Unknown TimeType for folder %s: %s" % (self.Name, self.TimeType))
+            
     def getIOVs(self, t, window = None, tag = None):
+        assert isinstance(t, (int, float))
         
         db = self.DB
         c = db._cursor()
-        t0 = datetime.fromtimestamp(t)
-        t1_where = ""
-        if window != None:
-            t1 = t0 + timedelta(seconds = window)
-            t1_where = " and i.begin_time <= '%s' " % (t1,)
+        t0 = t
+        t1 = None if window is None else t0 + window
         
-        #raise '%s %s' % (t0, t1)
+        t0 = self.numericToDBTime(t0)
+        t1 = self.numericToDBTime(t1)
+        
+        t1_where = "" if t1 is None else " and i.begin_time <= '%s' " % (t1,)
+
         if tag:
             c.execute("""select i.iov_id, i.begin_time 
                             from %s i, %s ti
@@ -288,6 +344,7 @@ class IOVFolder:
         return lst
 
     def getNextIOV(self, t=None, iovid=None, tag=None):
+        # t is DB time here
         assert not (t is None and iovid is None)
         db = self.DB
         c = db._cursor()
@@ -388,8 +445,6 @@ class IOVFolder:
         #print ' in getdata, iovid = %s, chanComps = %s, tag=%s ' %(iovid, str(chanComps), tag)
 
         assert not (t == None and iovid == None)
-        if type(t) == type(1.0) or type(t) == type(1):
-            t = datetime.fromtimestamp(t)
         if iovid == None:
             iovid, t0, t1 = self.findIOV(t, tag=tag)
         if iovid == None:
@@ -403,26 +458,14 @@ class IOVFolder:
         return [self.getSnapshotByIOV(iovid, tag=tag) for iovid in iovs]
         
 
-    def addData_old(self, t, data, override_future = False):
-        if type(t) in (type(1), type(1.0)):
-            t = datetime.fromtimestamp(t)
-        db = self.DB
-        c = db._cursor()
-        c.execute("begin")
-        if override_future:
-            # hope CASCADE will delete data
-            c.execute("delete from %s where begin_time >= '%s'" %
-                (self.TableIOVs, t))
-        iov = self._insertSnapshot(t, data, c)
-        #c.execute("commit")
-
-    def addData(self, t, data, combine = False, override_future = 'no'):
+    def addData(self, tt, data, combine = False, override_future = 'no'):
         # override future:
         #   'no' or None or '' - do not override
         #   'hide' - mark them inactive
         #   'delete' - delete IOVs
-        if type(t) in (type(1), type(1.0)):
-            t = datetime.fromtimestamp(t)
+        t = self.numericToDBTime(tt)
+        #print "addData(%s): converted %s -> %s" % (self.TimeType, tt, t)
+        
         if combine:
             s = self.getData(t)
             old_data = {}
@@ -488,6 +531,7 @@ class IOVFolder:
         
 
     def findIOV(self, t, tag=None):
+        tt = self.numericToDBTime(t)
         c = self.DB._cursor()
         if tag:
             c.execute("""
@@ -497,19 +541,19 @@ class IOVFolder:
                         ti.iov_id = i.iov_id and
                         ti.tag = '%s'
                     order by i.begin_time desc, i.iov_id desc
-                    limit 1""" % (self.TableIOVs, self.TableTagIOVs, t, tag))
+                    limit 1""" % (self.TableIOVs, self.TableTagIOVs, tt, tag))
         else:
             c.execute("""select iov_id, begin_time
                 from %s
                 where begin_time <= '%s' and active
                 order by begin_time desc, iov_id desc
-                limit 1""" % (self.TableIOVs, t))
+                limit 1""" % (self.TableIOVs, tt))
         x = c.fetchone()
         if not x:
             # not found
             return None, None, None
         iov, t0 = x
-        next_iov, t1 = self.getNextIOV(t, tag=tag)
+        next_iov, t1 = self.getNextIOV(tt, tag=tag)
         return iov, t0, t1
 
     def getSnapshotByIOV(self, iov, chanComps=None, tag=None):
@@ -617,7 +661,7 @@ class IOVFolder:
             c.execute("""select tag from %s""" % (self.TableTags,))
             return [x[0] for x in c.fetchall()]
         else:
-            print '\n table %s does not exists..' %self.TableTags
+            #print '\n table %s does not exists..' %self.TableTags
             return None
 
     def _insertSnapshot(self, t, data, cursor):
@@ -642,7 +686,7 @@ class IOVFolder:
         c.execute('commit')
         return iov
         
-    def _createTables(self, coltypes, drop_existing, grants={'public':'r'}):
+    def _createTables(self, coltypes, time_type, drop_existing, grants={'public':'r'}):
         # grants: {username:'r' or 'rw'}
         db = self.DB
         c = db._cursor()
@@ -696,16 +740,17 @@ class IOVFolder:
         if not self.exists(): 
             #c.execute("show role")
             #print 'Role=%s, %x' % (c.fetchone()[0], id(self.DB.DB))
+            time_type = TimeType_to_DB[time_type]
             sql = """
                 create table %(iovs_table)s (
                     iov_id      bigserial   primary key,
-                    begin_time  timestamp,
+                    begin_time  %(time_type)s,
                     active      boolean    default 'true');
                 create index %(iovs_table)s_begin_time_inx on %(iovs_table)s(begin_time);
 
                 create table %(tags_table)s (
                     tag         text    primary key,
-                    created     timestamp,
+                    created     timestamp with time zone,
                     comments    text
                 );
 
@@ -723,7 +768,7 @@ class IOVFolder:
                     {
                         'data_table':self.TableData, 'iovs_table':self.TableIOVs,
                         'tags_table':self.TableTags, 'tag_iovs_table':self.TableTagIOVs,
-                        'columns':columns
+                        'columns':columns, 'time_type':time_type
                     }
             #print sql
             if grants:
@@ -805,4 +850,3 @@ if __name__ == '__main__':
             
         
         
- 

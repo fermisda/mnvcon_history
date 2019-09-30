@@ -2,6 +2,7 @@ SRCFILES = create.py \
     fetch.py \
     parsePedestalFile.py \
     populate.py \
+    populate_int_time.py \
     populate_tags.py
 
 ALLFILES = $(SRCFILES) Version.py

@@ -9,6 +9,11 @@ options:
     -U <user>
     -w <password>
     
+    -t - time column type. Accepted values are:
+         t  - time with the DB implied time zone (default)
+         tz - time with explicit time zone
+         f  - floating point
+         i  - long integer
     -c - force create, drop existing table
     -R <user>,... - DB users to grant read permissions to
     -W <user>,... - DB users to grant write permissions to
@@ -22,10 +27,11 @@ columns = []
 grants_r = []
 grants_w = []
 drop_existing = False
+time_type = "timestamp"
 
 dbcon = []
 
-opts, args = getopt.getopt(sys.argv[1:], 'h:U:w:p:cR:W:')
+opts, args = getopt.getopt(sys.argv[1:], 'h:U:w:p:cR:W:t:')
 
 if len(args) < 3 or args[0] == 'help':
     print Usage
@@ -39,6 +45,9 @@ for opt, val in opts:
     elif opt == '-c':       drop_existing = True
     elif opt == '-R':       grants_r = val.split(',')
     elif opt == '-W':       grants_w = val.split(',')
+    elif opt == '-t':       time_type = val
+                                
+                            
     
 
 dbcon.append("dbname=%s" % (args[0],))
@@ -59,6 +68,7 @@ for u in grants_w:
 
 db = IOVDB(connstr=dbcon)
 t = db.createFolder(tname, ctypes, 
+    time_type = time_type, 
     grants = grants, 
     drop_existing = drop_existing)
 print 'Folder created'

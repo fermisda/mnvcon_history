@@ -1,4 +1,4 @@
-from WSGIApp import WSGIApp, WSGISessionApp, WSGIHandler, Request, Response, Application
+from webpie import WebPieApp, WebPieHandler, Response
 from  ConfigParser import ConfigParser
 import os, psycopg2, time, threading
 from datetime import datetime
@@ -8,27 +8,14 @@ from LRUCache import LRUCache
 import urllib
 from ConnectionPool import ConnectionPool
 
-import ldap, _ldap, sys
-
-IOVCache = LRUCache(50, True)
-DBConnectionPool = None
-DBConnectionPool_lock = threading.Lock()
-
-def initDBConnectionPool(connstr):
-    global DBConnectionPool, DBConnectionPool_lock
-    with DBConnectionPool_lock:
-        if DBConnectionPool is None:
-            DBConnectionPool = ConnectionPool(postgres=connstr, idle_timeout=30)
-            
+import sys
 
 class   ConfigFile(ConfigParser):
-    def __init__(self, request, path=None, envVar=None):
+    def __init__(self, path=None, envVar=None):
         ConfigParser.__init__(self)
-        if not path:
-            path = request.environ.get(envVar, None) or os.environ[envVar]
-        self.read(path)
+        self.read(path or os.environ[envVar])
     
-class DBConnection:
+class DBConnectionManager:
 
     def __init__(self, cfg):
         self.Host = None
@@ -61,20 +48,19 @@ class DBConnection:
         if self.Port:   connstr += " port=%s" % (self.Port,)
         if self.Host:   connstr += " host=%s" % (self.Host,)
 
-        initDBConnectionPool(connstr)
+        self.DBConnectionPool = ConnectionPool(postgres=connstr, idle_timeout=30)
         
-    def connection(self):
-        if self.DB == None:
-            self.DB = DBConnectionPool.connect()
-            self.DB.cursor().execute("set search_path to %s" % (self.Namespace,))
-        return self.DB
+    def connect(self):
+        conn = self.DBConnectionPool.connect()
+        conn.cursor().execute("set search_path to %s" % (self.Namespace,))
+        return conn
 
 # --------------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------------
-class IOVRequestHandler(WSGIHandler):
+class IOVRequestHandler(WebPieHandler):
 
-    def __init__(self, req, app):
-        WSGIHandler.__init__(self, req, app)
+    def __init__(self, req, app, path):
+        WebPieHandler.__init__(self, req, app, path)
         self.DB = app.iovdb()
 
     def times_(self, req, relpath, **args):
@@ -103,11 +89,11 @@ class IOVRequestHandler(WSGIHandler):
         return resp
 
     def output_iterator(self, t0, t1, data):
-        yield '%.6f\n' % (t0, )
+        yield '%s\n' % (t0, )
         if t1 == None:
             yield '-\n'
         else:
-            yield '%.6f\n' % (t1,)
+            yield '%s\n' % (t1,)
         colnames = ','.join([cn for cn, ct in data.columns()])
         coltypes = ','.join([ct for cn, ct in data.columns()])
         yield colnames + '\n' + coltypes + '\n'
@@ -145,7 +131,7 @@ class IOVRequestHandler(WSGIHandler):
         if lines:
             yield ''.join(lines)     
 
-    def mergeLines(self, iter, maxlen=100000):
+    def mergeLines(self, iter, maxlen=10000000):
         buf = []
         total = 0
         for l in iter:
@@ -162,38 +148,40 @@ class IOVRequestHandler(WSGIHandler):
     def timestamp(self, dt):
         return time.mktime(dt.timetuple()) + float(dt.microsecond)/1000000
         
-    def to_numeric(self, t):
+    def to_timestamp(self, t):
         if t is None:   return None
-        if not isinstance(t, (int, float)):
-            t = self.timestamp(t)
+        if not isinstance(t, (int, long, float)):
+            t = time.mktime(t.timetuple()) + float(t.microsecond)/1000000
         return t
             
-    def data(self, req, relpath, **args):
+    def data(self, req, relpath, f=None, tag=None, t=None, i=None, **args):
         T0 = time.time()
-        f = self.DB.openFolder(req.GET['f'])
+        folder = self.DB.openFolder(f)
+        if folder is None:
+		return Response("Folder %s not found\n" % (f,), status=404)
         #print 'Folder %s open' % (req.GET['f'],)
-        tag = req.GET.get('tag', None)
-        t = req.GET.get('t', None)
-        if t != None:
-            t = float(t)
-        iovid = req.GET.get('i', None)
+        if t is not None:
+            if '.' in t:    t = float(t)
+            else:           t = int(t)
+        iovid = i
         if iovid != None:
             iovid = int(iovid)
         if iovid == None:
-            data = f.getData(t, tag=tag)
+            data = folder.getData(t, tag=tag)
         else:
-            data = f.getData(iovid=iovid)
+            data = folder.getData(iovid=iovid)
         #self.DB.disconnect()
         T1 = time.time()
         #print 'got data: %f' % (T1-T0,)
         #raise '%s' % (iov,)
         resp = Response()
         if not data:
-            resp.status = 400
+            resp.status = 404
             resp.write("Data not found")
             return resp
         t0, t1 = data.iov()
-        t0, t1 = self.to_numeric(t0), self.to_numeric(t1)
+        t0, t1 = self.to_timestamp(t0), self.to_timestamp(t1)
+        #print "Server.data: t0,t1=", t0, t1
         resp.app_iter = self.mergeLines(self.output_iterator(t0, t1, data))
         T2 = time.time()
         #print 'Time: %f' % (T2 - T0,)
@@ -317,9 +305,9 @@ class IOVRequestHandler(WSGIHandler):
         format = json_format if relpath == 'json' else html_format
         content_type = "text/json" if relpath == 'json' else "text/html"
         
-        out = format % (id(IOVCache), os.getpid(), id(threading.current_thread()),
+        out = format % (id(self.App.IOVCache), os.getpid(), id(threading.current_thread()),
             IOVCache.HitRateAvg100, IOVCache.HitRateAvg10,
-            IOVCache.Hits, IOVCache.Misses )
+            IOVCache.Hits, self.App.IOVCache.Misses )
         return Response(out, content_type=content_type)
         
     def probe(self, req, relpath, **args):
@@ -383,16 +371,16 @@ class IOVRequestHandler(WSGIHandler):
         return Response("\n".join(folders), content_type="text/plain")
         
     
-class IOVServerApp(WSGIApp):
-#class IOVServerApp(WSGIApp):
+class IOVServerApp(WebPieApp):
 
-    def __init__(self, request, rootclass):
-        WSGIApp.__init__(self, request, rootclass)
+    def __init__(self, rootclass):
+        WebPieApp.__init__(self, rootclass)
         global IOVPersistent
-        self.Config = ConfigFile(request, envVar = 'IOV_SERVER_CFG')
-        self.DB = DBConnection(self.Config)
+        self.Config = ConfigFile(envVar = 'IOV_SERVER_CFG')
+        self.DBMgr = DBConnectionManager(self.Config)
         self.IOVDB = None
-        self.initJinja2(tempdirs = [os.path.dirname(__file__)])
+        self.initJinjaEnvironment(tempdirs = [os.path.dirname(__file__)])
+        self.IOVCache = LRUCache(50)
         
         #self.initJinja2(tempdirs = [os.path.dirname(__file__)])
 
@@ -400,14 +388,13 @@ class IOVServerApp(WSGIApp):
         return self.Config
                
     def iovdb(self):
-        if self.IOVDB is None:
-            self.IOVDB = IOVDB(self.DB.connection(), cache = IOVCache)
-        return self.IOVDB
+        return IOVDB(self.DBMgr.connect(), cache = self.IOVCache)
 
     def destroy(self):
         #if self.IOVDB:  self.IOVDB.disconnect()
         self.IOVDB = None
         
-application = Application(IOVServerApp,IOVRequestHandler)
+application = IOVServerApp(IOVRequestHandler)
         
-    
+if __name__ == '__main__':
+    application.run_server(9090)
