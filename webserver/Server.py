@@ -1,14 +1,27 @@
 from webpie import WebPieApp, WebPieHandler, Response
-from  ConfigParser import ConfigParser
+from  configparser import ConfigParser
 import os, psycopg2, time, threading
 from datetime import datetime
 from IOVAPI import IOVDB
 from FileAPI import MnvFileDB
 from LRUCache import LRUCache
-import urllib
+import urllib.request, urllib.parse, urllib.error
 from ConnectionPool import ConnectionPool
 
 import sys
+
+PY2 = sys.version_info < (3,)
+PY3 = sys.version_info >= (3,)
+
+if PY3:
+    def to_bytes(s):
+        if isinstance(s, bytes):    return s
+        elif isinstance(s, str):    return bytes(s, "utf-8")
+
+else:
+    def to_bytes(s):
+        if isinstance(s, bytes):    return s
+        else:   return bytes(s)    
 
 class   ConfigFile(ConfigParser):
     def __init__(self, path=None, envVar=None):
@@ -48,7 +61,7 @@ class DBConnectionManager:
         if self.Port:   connstr += " port=%s" % (self.Port,)
         if self.Host:   connstr += " host=%s" % (self.Host,)
 
-        self.DBConnectionPool = ConnectionPool(postgres=connstr, idle_timeout=30)
+        self.DBConnectionPool = ConnectionPool(postgres=connstr, idle_timeout=3)
         
     def connect(self):
         conn = self.DBConnectionPool.connect()
@@ -59,8 +72,8 @@ class DBConnectionManager:
 # --------------------------------------------------------------------------------------------------------------------------
 class IOVRequestHandler(WebPieHandler):
 
-    def __init__(self, req, app, path):
-        WebPieHandler.__init__(self, req, app, path)
+    def __init__(self, req, app):
+        WebPieHandler.__init__(self, req, app)
         self.DB = app.iovdb()
 
     def times_(self, req, relpath, **args):
@@ -137,20 +150,20 @@ class IOVRequestHandler(WebPieHandler):
         for l in iter:
             n = len(l)
             if n + total > maxlen:
-                yield ''.join(buf)
+                yield to_bytes(''.join(buf))
                 buf = []
                 total = 0
             buf.append(l)
             total += n
         if buf:
-            yield ''.join(buf)
+            yield to_bytes(''.join(buf))
 
     def timestamp(self, dt):
         return time.mktime(dt.timetuple()) + float(dt.microsecond)/1000000
         
     def to_timestamp(self, t):
         if t is None:   return None
-        if not isinstance(t, (int, long, float)):
+        if not isinstance(t, (int, float)):
             t = time.mktime(t.timetuple()) + float(t.microsecond)/1000000
         return t
             
@@ -158,7 +171,7 @@ class IOVRequestHandler(WebPieHandler):
         T0 = time.time()
         folder = self.DB.openFolder(f)
         if folder is None:
-		return Response("Folder %s not found\n" % (f,), status=404)
+                return Response("Folder %s not found\n" % (f,), status=404)
         #print 'Folder %s open' % (req.GET['f'],)
         if t is not None:
             if '.' in t:    t = float(t)
@@ -379,7 +392,7 @@ class IOVServerApp(WebPieApp):
         self.Config = ConfigFile(envVar = 'IOV_SERVER_CFG')
         self.DBMgr = DBConnectionManager(self.Config)
         self.IOVDB = None
-        self.initJinjaEnvironment(tempdirs = [os.path.dirname(__file__)])
+        #self.initJinjaEnvironment(tempdirs = [os.path.dirname(__file__)])
         self.IOVCache = LRUCache(50)
         
         #self.initJinja2(tempdirs = [os.path.dirname(__file__)])

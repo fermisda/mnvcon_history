@@ -24,7 +24,7 @@ dbcon = []
 opts, args = getopt.getopt(sys.argv[1:], 'h:U:w:p:c:')
 
 if len(args) < 3 or args[0] == 'help':
-    print Usage
+    print(Usage)
     sys.exit(0)
 
 for opt, val in opts:
