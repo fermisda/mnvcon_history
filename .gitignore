@@ -1,4 +1,6 @@
 *.bck
+*.bak
+*.tabs
 *.pyc
 .*
 ~*
