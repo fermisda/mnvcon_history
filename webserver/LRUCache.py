@@ -19,7 +19,7 @@ class   LRUCache(Primitive):
     
     @synchronized
     def __getitem__(self, key):
-            if self.Cache.has_key(key):
+            if key in self.Cache:
                 x = self.Cache[key]
                 self.Keys.remove(key)
                 self.Keys.insert(0, key)
@@ -43,8 +43,8 @@ class   LRUCache(Primitive):
     def clear(self):
             self.HitRateAvg10 = 0.0    
             self.HitRateAvg100 = 0.0    
-            self.Hits = 0L
-            self.Misses = 0L
+            self.Hits = 0
+            self.Misses = 0
             self.Keys = []
             self.Cache = {}
 

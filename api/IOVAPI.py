@@ -110,8 +110,8 @@ class IOVDB:
     def openFolder(self, name, columns = '*'):
         f = IOVFolder(self, name, columns)
         if not f.exists():
-		f = None
-	return f
+                f = None
+        return f
         
     def createFolder(self, name, columns_and_types, drop_existing=False,
                 time_type = "timestamp",
@@ -163,7 +163,7 @@ class IOVDB:
         return [(c[0], c[1]) for c in columns]
         
     def _typeName(self, ctype):
-        if not self.DataTypes.has_key(ctype):
+        if ctype not in self.DataTypes:
             c = self._cursor()
             c.execute("select pg_catalog.format_type(%d, null)" % (ctype,))
             self.DataTypes[ctype] = c.fetchone()[0]
@@ -193,11 +193,11 @@ class IOVSnapshot:
         
     def items(self):
         self._makeDict()
-        return self.Dict.items()
+        return list(self.Dict.items())
 
     def keys(self):
         self._makeDict()
-        return self.Dict.keys()
+        return list(self.Dict.keys())
 
     def get(self, channel, default):
         self._makeDict()
@@ -253,18 +253,18 @@ class IOVFolder:
         self.TableData = '%s_data' % (self.Name,)
         self.TableTags = '%s_tags' % (self.Name,)
         self.TableTagIOVs = '%s_tag_iovs' % (self.Name,)
-	self.Columns = columns
+        self.Columns = columns
         if self.exists():
-		if self.Columns == '*':
-		    self.Columns = self._getDataColumns()
-		self.Colstr = ','.join(self.Columns)
-		self.Cache = self.DB.Cache
-		self.TimeType = None
-		self.WithTimeZone = False
-		col_dict = dict(self.DB._columns(self.TableIOVs))
-		typ = col_dict["begin_time"]
-		assert typ in TimeType_from_DB, "Unknown timestamp column type '%s' in the database" % (typ,)
-		self.TimeType = TimeType_from_DB[typ]
+                if self.Columns == '*':
+                    self.Columns = self._getDataColumns()
+                self.Colstr = ','.join(self.Columns)
+                self.Cache = self.DB.Cache
+                self.TimeType = None
+                self.WithTimeZone = False
+                col_dict = dict(self.DB._columns(self.TableIOVs))
+                typ = col_dict["begin_time"]
+                assert typ in TimeType_from_DB, "Unknown timestamp column type '%s' in the database" % (typ,)
+                self.TimeType = TimeType_from_DB[typ]
 
     def exists(self):
         return self.DB._tablesExist(self.TableData, self.TableIOVs)
@@ -822,31 +822,31 @@ if __name__ == '__main__':
         f.addData(t, data)
         totalt += time.time() - t0
         
-    print 'populated from %s to %s' % (
-        time.mktime(time0.timetuple()),time.mktime(t.timetuple()))
+    print('populated from %s to %s' % (
+        time.mktime(time0.timetuple()),time.mktime(t.timetuple())))
         
-    print 'Write time per snapshot (sec):', totalt/snapshots
+    print('Write time per snapshot (sec):', totalt/snapshots)
     
     tx = time0 + timedelta(minutes=45)       # t0 + 45 minutes
     t0 = time.time()
     tuple, valid = f.getTuple(tx, 70)
-    print "Data for channel=70:", tuple
-    print "Valid from %s to %s" % valid
-    print "Time:", time.time() - t0
+    print("Data for channel=70:", tuple)
+    print("Valid from %s to %s" % valid)
+    print("Time:", time.time() - t0)
     
     tx = time0 + timedelta(minutes=46)         # t0 + 46 minutes - should get data from cache
     t0 = time.time()
     tuple, valid = f.getTuple(tx, 70)
-    print "Data for channel=70:", tuple
-    print "Valid from %s to %s" % valid
-    print "Time:", time.time() - t0
+    print("Data for channel=70:", tuple)
+    print("Valid from %s to %s" % valid)
+    print("Time:", time.time() - t0)
     
     tx = time0 + timedelta(minutes=25)         # t0 + 25 minutes - should go to the db
     t0 = time.time()
     tuple, valid = f.getTuple(tx, 70)
-    print "Data for channel=70:", tuple
-    print "Valid from %s to %s" % valid
-    print "Time:", time.time() - t0
+    print("Data for channel=70:", tuple)
+    print("Valid from %s to %s" % valid)
+    print("Time:", time.time() - t0)
             
         
         

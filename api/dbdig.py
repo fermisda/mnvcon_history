@@ -284,7 +284,7 @@ if __name__ == '__main__':
     try:
         conn = psycopg2.connect(dsn)
     except:
-        print "I am unable to connect to the database"
+        print("I am unable to connect to the database")
         sys.exit(1)
 
 
@@ -302,29 +302,29 @@ if __name__ == '__main__':
 
     if len(args)==0:
         dd = dddd.dbases()
-        print "Databases:"
+        print("Databases:")
         if dd:
             for d in dd:
-                print d
+                print(d)
         sys.exit(0)
 
 
     if len(args)==1:
         dd = dddd.nspaces()
-        print "Namespaces:"
+        print("Namespaces:")
         if dd:
             for d in dd:
-                print d
+                print(d)
         sys.exit(0)
 
 
     if len(args)==2:
         nspace = args[1]
         dd = dddd.tables(nspace)
-        print "Tables:"
+        print("Tables:")
         if dd:
             for d in dd:
-                print d
+                print(d)
         sys.exit(0)
 
 
@@ -332,32 +332,32 @@ if __name__ == '__main__':
         nspace = args[1]
         tname  = args[2]
         dd = dddd.columns(nspace, tname)
-        print "Columns:"
+        print("Columns:")
         if dd:
             for d in dd:
-                print d
+                print(d)
 
         dd = dddd.pKey(nspace, tname)
-        print "Primary Key:"
+        print("Primary Key:")
         if dd:
-            print dd
+            print(dd)
 
         dd = dddd.indexes(nspace, tname)
-        print "Indexes:"
+        print("Indexes:")
         if dd:
             for d in dd:
-                print d
+                print(d)
 
         dd = dddd.fKeys(nspace, tname)
-        print "Foreign Keys:"
+        print("Foreign Keys:")
         if dd:
             for d in dd:
-                print d
+                print(d)
 
         dd = dddd.referringKeys(nspace, tname)
-        print "Referring Keys:"
+        print("Referring Keys:")
         if dd:
             for d in dd:
-                print d
+                print(d)
 
 

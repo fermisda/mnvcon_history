@@ -1,6 +1,15 @@
 import getopt
 import sys
-import urllib2, hashlib, random, time
+
+PY2 = sys.version_info < (3,)
+PY3 = not PY2
+
+if PY2:
+    from urllib import urlopen
+else:
+    from urllib.request inport urlopen
+    
+import hashlib, random, time
 from datetime import datetime
 
 Usage = """
@@ -13,7 +22,7 @@ python get_csv.py [options] <URL> <folder>
 
 opts, args = getopt.getopt(sys.argv[1:], 't:nT:')
 if not args:
-    print Usage
+    print(Usage)
     sys.exit(1)
 t = time.time()
 tag = None
@@ -32,8 +41,7 @@ if tag: args += "&tag=%s" % (tag,)
 url = "%s/data?%s" % (url, args)
 
 if do_retrieve:
-    req = urllib2.Request(url)
-    response = urllib2.urlopen(req)
-    print response.getcode(), response.read()
+    response = urlopen(url)
+    print(response.getcode(), response.read())
 else:
-    print url
+    print(url)

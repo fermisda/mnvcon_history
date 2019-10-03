@@ -78,7 +78,7 @@ class MnvFileDB:
         return [(c[0], c[1]) for c in columns]
         
     def _typeName(self, ctype):
-        if not self.DataTypes.has_key(ctype):
+        if ctype not in self.DataTypes:
             c = self._cursor()
             c.execute("select pg_catalog.format_type(%d, null)" % (ctype,))
             self.DataTypes[ctype] = c.fetchone()[0]
@@ -88,20 +88,20 @@ class MnvFileDB:
     def getDataTypes(self):
       
         sql = """ select * from %s """ %self.DatypTable
-	c = self._cursor()
-	c.execute(sql)
+        c = self._cursor()
+        c.execute(sql)
         data = c.fetchall()
-	lst = (aval[0] for aval in data)
+        lst = (aval[0] for aval in data)
         return lst
 
     def getDetectors(self):
       
         sql = """ select * from %s """ %self.DetTable
-	c = self._cursor()
-	c.execute(sql)
+        c = self._cursor()
+        c.execute(sql)
         data = c.fetchall()
         lst = (aval[0] for aval in data)
-	return lst
+        return lst
 
 
     def addTypesDet(self,dtyp=None,det=None):
@@ -117,10 +117,10 @@ class MnvFileDB:
     def addDataTypes(self,dtyp):
       
         sql = """ select * from %s """ %self.DatypTable
-	c = self._cursor()
-	c.execute(sql)
+        c = self._cursor()
+        c.execute(sql)
         data = c.fetchall()
-	lst = (aval[0] for aval in data)
+        lst = (aval[0] for aval in data)
         
         if dtyp in lst: return 1
         insql = "insert into %s(datatype) values('%s')" %(self.DatypTable,dtyp)
@@ -131,10 +131,10 @@ class MnvFileDB:
     def addDetectors(self,det):
       
         sql = """ select * from %s """ %self.DetTable
-	c = self._cursor()
-	c.execute(sql)
+        c = self._cursor()
+        c.execute(sql)
         data = c.fetchall()
-	lst = (aval[0] for aval in data)
+        lst = (aval[0] for aval in data)
         if det in lst: return 1
         insql = "insert into %s(detector) values('%s')" %(self.DetTable,det)
         c.execute(insql)
@@ -145,8 +145,8 @@ class MnvFileDB:
     def checkDataTypes(self,dtyp):
       
         sql = """ select datatype from %s where datatype = '%s' """ %(self.DatypTable,dtyp)
-	c = self._cursor()
-	c.execute(sql)
+        c = self._cursor()
+        c.execute(sql)
         data = c.fetchone()
         if data==None:
           return None
@@ -154,8 +154,8 @@ class MnvFileDB:
     def checkDetectors(self,det):
       
         sql = """ select detector from %s where detector = '%s' """ %(self.DetTable,det)
-	c = self._cursor()
-	c.execute(sql)
+        c = self._cursor()
+        c.execute(sql)
         data = c.fetchone()
         if data==None:
           return None
@@ -169,7 +169,7 @@ class MnvFileDB:
             sql = sql + whereClause
         sql = sql + "  order by uname"
         c = self._cursor()
-	c.execute(sql)
+        c.execute(sql)
         data = c.fetchall()
         return data
 
@@ -201,12 +201,12 @@ class MnvFileDB:
         for aval in userVals:
             col,val=aval
             #print 'col = %s, val= %s ' %(col,str(aval))        
-	sqlSetList = []
+        sqlSetList = []
         for aval in userVals:
             if type(aval[1]) == type(""):
-	      clause = "%s='%s'" % (aval[0],aval[1])
+              clause = "%s='%s'" % (aval[0],aval[1])
             else:
-	      clause = "%s=%s" % (aval[0],aval[1])
+              clause = "%s=%s" % (aval[0],aval[1])
             sqlSetList.append(clause)    
         
         sqlSetList.append("mod_user='%s',mod_time=now()" %loginUserName)
@@ -214,7 +214,7 @@ class MnvFileDB:
         #print " update sql = %s" %sql
         c = self._cursor()
         c.execute(sql)
-	c.execute('commit')
+        c.execute('commit')
         
         return 1
 
@@ -224,7 +224,7 @@ class MnvFileDB:
         #print " delete sql = %s" %sql
         c = self._cursor()
         c.execute(sql)
-	c.execute('commit')
+        c.execute('commit')
         return 1
         
 
@@ -263,9 +263,9 @@ class MnvFileDB:
         
         sql = """ select filepath,datatype,detector,loaded,verified,obsolete from %s %s 
                   order by add_time desc""" %(self.FileTable,whereClause)
-	#print 'sql =%s ' %sql
+        #print 'sql =%s ' %sql
         c = self._cursor()
-	c.execute(sql)
+        c.execute(sql)
         data = c.fetchall()
         for aval in data:
            filename,dtyp,det,ld,ver,obs = aval
@@ -278,10 +278,10 @@ class MnvFileDB:
         lst=[]
         sql = """ select filepath from %s """ %(self.FileTable)
         c = self._cursor()
-	c.execute(sql)
+        c.execute(sql)
         data = c.fetchall()
         if data:
-	    for aval in data:
+            for aval in data:
                 lst.append(aval[0])
         return lst
 
@@ -354,29 +354,29 @@ class MnvFileDB:
       
         
         sql = """ select idfile,filepath,datatype,detector,loaded,verified,obsolete,
-	          to_char(add_time,'YYYY-MM-DD HH24:MI:SS'),error,comment,modify_time,modify_user 
+                  to_char(add_time,'YYYY-MM-DD HH24:MI:SS'),error,comment,modify_time,modify_user 
                   from %s order by add_time desc""" %self.FileTable
 
-	c = self._cursor()
-	c.execute(sql)
+        c = self._cursor()
+        c.execute(sql)
         data = c.fetchall()
-	lst = (aval for aval in data)
-	return lst
+        lst = (aval for aval in data)
+        return lst
 
 
 
     def checkFileExist(self,filename):
 
         stat = 0
-	sql = "select filepath from %s where filepath ='%s' "%(self.FileTable,filename)
+        sql = "select filepath from %s where filepath ='%s' "%(self.FileTable,filename)
         #print ' verify sql = %s' %sql
-	c = self._cursor()
-	c.execute(sql)
-	data = c.fetchone()
-	if data :
+        c = self._cursor()
+        c.execute(sql)
+        data = c.fetchone()
+        if data :
            stat = 1
            return stat
-	return stat
+        return stat
       
 
     def addFile(self,filename,datatype,detector):
@@ -387,7 +387,7 @@ class MnvFileDB:
 
 # check if file exists
         statCheck = self.checkFileExist(filename)        
-	if statCheck:
+        if statCheck:
           errMsg = " File %s already exists in DB " %filename
           statAdd = 0
           return statAdd,errMsg
@@ -395,18 +395,18 @@ class MnvFileDB:
         sql = """insert into %s(filepath,datatype,detector,add_time,error) values('%s','%s','%s',now(),0)""" %(self.FileTable,filename,datatype,detector )
    
         #print 'sql = %s' %sql 
-	c = self._cursor()
-	try:
+        c = self._cursor()
+        try:
           c.execute(sql)
         except:
-          errMsg = 'Error: %s %s<br>SQL statement: %s' % (sys.exc_type, sys.exc_info()[1], sql)
-	  #print ' addfile, errMsg = %s' %errMsg
+          errMsg = 'Error: %s %s<br>SQL statement: %s' % (sys.exc_info()[0], sys.exc_info()[1], sql)
+          #print ' addfile, errMsg = %s' %errMsg
           statAdd = 0
           return statAdd,errMsg
           
 
-	c.execute('commit')
-	return statAdd,errMsg
+        c.execute('commit')
+        return statAdd,errMsg
 
 
     def verifyFileList(self,filedata):
@@ -419,7 +419,7 @@ class MnvFileDB:
         ll=1
         for aline in fdata:
            aval = [af.strip() for af in aline.rsplit(',')]
-           print '%s, len= %d ' %(aline, len(aval))
+           print('%s, len= %d ' %(aline, len(aval)))
            if len(aval) !=3:
                 err = " Error in parsing file at line %d <br> %s " %(ll,aline)
                 errList.append(err)
@@ -438,7 +438,7 @@ class MnvFileDB:
            afile,dtyp,det = aval
            sf = self.checkFileExist(afile)
            if sf == 1:
-	     errList.append(" File %s: file already in DB" %afile)
+             errList.append(" File %s: file already in DB" %afile)
 
            sd = self.checkDetectors(det)
            #sd = self.checkDetectors(det)
@@ -517,11 +517,11 @@ class MnvFile:
         showCols = ['filepath','datatype','detector','loaded','verified','obsolete','add_time']
         
         sql = """ select filepath,datatype,detector,loaded,verified,obsolete,
-	          to_char(add_time,'YYYY-MM-DD HH24:MI:SS') from %s where filepath='%s' """ %(self.FileTable,self.Name)
-	c = self.DB._cursor()
-	c.execute(sql)
+                  to_char(add_time,'YYYY-MM-DD HH24:MI:SS') from %s where filepath='%s' """ %(self.FileTable,self.Name)
+        c = self.DB._cursor()
+        c.execute(sql)
         data = c.fetchone()
-	return showCols,data
+        return showCols,data
 
     # ------------------------------------------------------------------------------------
     def getFlags(self):
@@ -531,9 +531,9 @@ class MnvFile:
         valFlags=[]
         colFlags = ['loaded','verified','obsolete','error','comment']
         sql = """ select loaded,verified,obsolete,error,comment
-	          from %s where filepath='%s' """ %(self.FileTable,self.Name)
-	c = self.DB._cursor()
-	c.execute(sql)
+                  from %s where filepath='%s' """ %(self.FileTable,self.Name)
+        c = self.DB._cursor()
+        c.execute(sql)
         data = c.fetchall()
         i=0
         for aval in data:
@@ -544,21 +544,21 @@ class MnvFile:
              lst.append( (colFlags[i],av))
              i+=1
 
-	return lst
+        return lst
     # ------------------------------------------------------------------------------------
     def checkFlag (self,filename,flagCol):
 
         data = None
-	c = self.DB._cursor()
+        c = self.DB._cursor()
         sql = "select %s from %s  where filepath = '%s' " %(flagCol,self.FileTable,filename)
         c.execute(sql)
         data = c.fetchone()
-	#print ' flags  = %s ' %data[0]
+        #print ' flags  = %s ' %data[0]
         if data : 
           flag = data[0]
           #print ' flagcol = %s, flag again, %s' %(flagCol,flag)
           return flag
-	return None
+        return None
 
     def checkLoaded (self):
        val = self.checkFlag (self.Name,'loaded')
@@ -581,35 +581,35 @@ class MnvFile:
     def updateFlags (self,updateData):
 
 
-	sqlSetList = []
-	for aval in updateData:
+        sqlSetList = []
+        for aval in updateData:
                 #print 'aval = %s' %str(aval)
                 if type(aval[1]) == type(""):
-		  clause = "%s='%s'" % (aval[0],aval[1])
+                  clause = "%s='%s'" % (aval[0],aval[1])
                 else:
-		  clause = "%s=%s" % (aval[0],aval[1])
-	        
+                  clause = "%s=%s" % (aval[0],aval[1])
+                
                 sqlSetList.append(clause)    
 # add modify time too
         sqlSetList.append("modify_time=now()")
         sql= "update %s set %s where filepath = '%s'" % (self.FileTable,string.join(sqlSetList,', '),self.Name)
-        print " update sql = %s" %sql
+        print(" update sql = %s" %sql)
         c = self.DB._cursor()
         c.execute(sql)
-	c.execute('commit')
+        c.execute('commit')
         return 1
 
     # ------------------------------------------------------------------------------------
     def setResetFlag (self,filename,flagCol,flagVal):
-	c = self.DB._cursor()
+        c = self.DB._cursor()
         if type(flagCol) == type(""):
           sql = "update %s set %s = '%s'  where filepath = '%s' " %(self.FileTable,flagCol,flagVal,filename)
-	else:
+        else:
           sql = "update %s set %s = %s  where filepath = '%s' " %(self.FileTable,flagCol,flagVal,filename)
         
         #print ' setResetFlag, sql = %s ' %sql
         c.execute(sql)
-	c.execute('commit')
+        c.execute('commit')
      
 
     def setLoaded (self):
@@ -636,10 +636,10 @@ class MnvFile:
        self.setResetFlag (self.Name,'error',errVal)
 
     def resetError (self):
-	c = self.DB._cursor()
+        c = self.DB._cursor()
         sql = "update %s set error=NULL  where filepath = '%s' " %(self.FileTable,self.Name)
         c.execute(sql)
-	c.execute('commit')
+        c.execute('commit')
 
 
     # ------------------------------------------------------------------------------------
@@ -658,4 +658,4 @@ if __name__ == '__main__':
     
     db = MnvFileDB(connstr=sys.argv[1])
     
-    print "Testing connection"
+    print("Testing connection")

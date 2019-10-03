@@ -1,5 +1,7 @@
 *.bck
+*.bak
 *.pyc
+*.tabs
 .*
 ~*
 !.gitignore

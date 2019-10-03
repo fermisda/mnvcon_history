@@ -26,7 +26,7 @@ print_values = True
 dbcon = []
 
 if len(args) < 3 or args[0] == 'help':
-    print Usage
+    print(Usage)
     sys.exit(0)
 
 for opt, val in opts:
@@ -61,9 +61,9 @@ if print_values:
     for s in snapshots:
         f, t = s.iov()
         for tup in s.asList():
-            print tup[0], f, tup[1:]
+            print(tup[0], f, tup[1:])
 else:
     n = 0;
     for s in snapshots:
         n += len(s.asList())
-    print n, "rows in", len(snapshots),"snapshots"
+    print(n, "rows in", len(snapshots),"snapshots")
