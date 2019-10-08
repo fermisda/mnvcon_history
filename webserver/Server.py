@@ -1,4 +1,4 @@
-from webpie import WebPieApp, WebPieHandler, Response
+from webpie import WPApp, WPHandler, Response
 from  configparser import ConfigParser
 import os, psycopg2, time, threading
 from datetime import datetime
@@ -6,7 +6,7 @@ from IOVAPI import IOVDB
 from FileAPI import MnvFileDB
 from LRUCache import LRUCache
 import urllib.request, urllib.parse, urllib.error
-from ConnectionPool import ConnectionPool
+from wsdbtools import ConnectionPool
 
 import sys
 
@@ -70,13 +70,13 @@ class DBConnectionManager:
 
 # --------------------------------------------------------------------------------------------------------------------------
 # --------------------------------------------------------------------------------------------------------------------------
-class IOVRequestHandler(WebPieHandler):
+class IOVRequestHandler(WPHandler):
 
-    def __init__(self, req, app):
-        WebPieHandler.__init__(self, req, app)
-        self.DB = app.iovdb()
+    @property
+    def DB(self):
+        return self.App.iovdb()
 
-    def times_(self, req, relpath, **args):
+    def times____hide____(self, req, relpath, **args):
         #print args
         f = self.DB.openFolder(req.GET['f'])
         t0 = float(req.GET['t'])
@@ -384,28 +384,26 @@ class IOVRequestHandler(WebPieHandler):
         return Response("\n".join(folders), content_type="text/plain")
         
     
-class IOVServerApp(WebPieApp):
+class IOVServerApp(WPApp):
 
     def __init__(self, rootclass):
-        WebPieApp.__init__(self, rootclass)
+        WPApp.__init__(self, rootclass)
         global IOVPersistent
         self.Config = ConfigFile(envVar = 'IOV_SERVER_CFG')
-        self.DBMgr = DBConnectionManager(self.Config)
-        self.IOVDB = None
-        #self.initJinjaEnvironment(tempdirs = [os.path.dirname(__file__)])
+        self.DBMgr = None	# under uwsgi, create self.DBMgr at runtime, not in constructor.
         self.IOVCache = LRUCache(50)
         
-        #self.initJinja2(tempdirs = [os.path.dirname(__file__)])
 
     def cfgld(self):
         return self.Config
                
     def iovdb(self):
+        if self.DBMgr is None:	# under uwsgi, create self.DBMgr at runtime, not in constructor.
+            self.DBMgr = DBConnectionManager(self.Config)
         return IOVDB(self.DBMgr.connect(), cache = self.IOVCache)
 
     def destroy(self):
-        #if self.IOVDB:  self.IOVDB.disconnect()
-        self.IOVDB = None
+        pass
         
 application = IOVServerApp(IOVRequestHandler)
         
