@@ -386,10 +386,10 @@ class IOVRequestHandler(WPHandler):
     
 class IOVServerApp(WPApp):
 
-    def __init__(self, rootclass):
+    def __init__(self, rootclass, config_file):
         WPApp.__init__(self, rootclass)
         global IOVPersistent
-        self.Config = ConfigFile(envVar = 'IOV_SERVER_CFG')
+        self.Config = ConfigFile(config_file)
         self.DBMgr = None	# under uwsgi, create self.DBMgr at runtime, not in constructor.
         self.IOVCache = LRUCache(50)
         
@@ -404,8 +404,9 @@ class IOVServerApp(WPApp):
 
     def destroy(self):
         pass
+
+def create_application(config_file=None):
+    config_file = config_file or os.environ.get("IOV_SERVER_CFG")
+    return IOVServerApp(IOVRequestHandler, config_file)
         
-application = IOVServerApp(IOVRequestHandler)
-        
-if __name__ == '__main__':
-    application.run_server(9090)
+application = create_application()
