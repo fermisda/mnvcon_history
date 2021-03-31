@@ -408,5 +408,7 @@ class IOVServerApp(WPApp):
 def create_application(config_file=None):
     config_file = config_file or os.environ.get("IOV_SERVER_CFG")
     return IOVServerApp(IOVRequestHandler, config_file)
+
+if "IOV_SERVER_CFG" in os.environ:
+    application = create_application()
         
-application = create_application()

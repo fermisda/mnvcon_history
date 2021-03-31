@@ -5,7 +5,7 @@ ALLFILES = $(SRCFILES) Version.py __init__.py
 
 all: $(DESTDIR)
 	cp $(SRCFILES) $(DESTDIR)
-	cd $(DESTDIR); echo $(VERSION) > Version.py; touch __init__.py
+	cd $(DESTDIR); echo 'Version="$(VERSION)"' > Version.py; touch __init__.py
 	cd $(DESTDIR); chmod +rx $(ALLFILES) 
 
 
