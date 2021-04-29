@@ -324,7 +324,7 @@ class IOVRequestHandler(WPHandler):
         return Response(out, content_type=content_type)
         
     def probe(self, req, relpath, **args):
-        return Response("OK")
+        #return Response("OK")
         if self.App.iovdb().probe():
             return Response("OK")
         else:
