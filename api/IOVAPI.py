@@ -269,7 +269,7 @@ class IOVFolder:
     def time_column_cast(self, column):
         if self.TimeType == "t":
             column = f"{column}::timestamptz"
-        retuen column
+        return column
 
     def exists(self):
         return self.DB._tablesExist(self.TableData, self.TableIOVs)
