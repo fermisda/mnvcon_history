@@ -7,6 +7,7 @@ from FileAPI import MnvFileDB
 from LRUCache import LRUCache
 import urllib.request, urllib.parse, urllib.error
 from wsdbtools import ConnectionPool
+from Version import Version
 
 import sys
 
@@ -76,30 +77,8 @@ class IOVRequestHandler(WPHandler):
     def DB(self):
         return self.App.iovdb()
 
-    def times____hide____(self, req, relpath, **args):
-        #print args
-        f = self.DB.openFolder(req.GET['f'])
-        t0 = float(req.GET['t'])
-        tag = req.GET.get('tag', None)  
-        window = req.GET.get('d', None)
-        tag = req.GET.get('tag', None)
-        if window:
-            if window[-1] == 'd':
-                window = float(window[:-1]) * 24 * 3600
-            else:
-                window = float(window) 
-        else:
-            window = float(7*24*3600)
-        resp = Response()
-        resp.write('iovid,time\n')
-        times = f.getIOVs(t0, window, tag=tag)
-        #print times
-        for iovid, t in times:
-            tepoch = time.mktime(t.timetuple()) + float(t.microsecond)/1000000
-            resp.write('%d,%.6f\n' % (iovid,tepoch,))
-        resp.headers.add('Cache-Control','no-store')
-        resp.headers.add('Content-Type','text/plain')
-        return resp
+    def version(self, request, relpath, **args):
+        return Version, "text/plan"
 
     def output_iterator(self, t0, t1, data):
         yield '%s\n' % (t0, )
