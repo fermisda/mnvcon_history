@@ -266,6 +266,11 @@ class IOVFolder:
                 assert typ in TimeType_from_DB, "Unknown timestamp column type '%s' in the database" % (typ,)
                 self.TimeType = TimeType_from_DB[typ]
 
+    def time_column_cast(self, column):
+        if self.TimeType == "t":
+            column = f"{column}::timestamptz"
+        retuen column
+
     def exists(self):
         return self.DB._tablesExist(self.TableData, self.TableIOVs)
 
@@ -304,10 +309,12 @@ class IOVFolder:
         t0 = self.numericToDBTime(t0)
         t1 = self.numericToDBTime(t1)
         
-        t1_where = "" if t1 is None else " and i.begin_time <= '%s' " % (t1,)
+        begin_time = self.time_column_cast("begin_time")
+        
+        t1_where = "" if t1 is None else f" and i.{begin_time} <= '%s' " % (t1,)
 
         if tag:
-            c.execute("""select i.iov_id, i.begin_time 
+            c.execute(f"""select i.iov_id, i.{begin_time} 
                             from %s i, %s ti
                             where i.begin_time >= '%s' 
                                 %s 
@@ -316,9 +323,9 @@ class IOVFolder:
                             order by i.begin_time""" % 
                             (self.TableIOVs, self.TableTagIOVs, t0, t1_where, tag))
         else:
-            c.execute("""select iov_id, begin_time 
+            c.execute(f"""select iov_id, {begin_time} 
                             from %s i
-                            where i.begin_time >= '%s' 
+                            where i.{begin_time} >= '%s' 
                                     %s
                                     and active
                             order by i.begin_time""" % 
@@ -326,14 +333,14 @@ class IOVFolder:
             
         lst = c.fetchall()
         if tag:
-            c.execute("""select i.iov_id, i.begin_time
+            c.execute(f"""select i.iov_id, i.{begin_time}
                 from %s i, %s ti
                 where begin_time < '%s'
                     and i.iov_id = ti.iov_id and ti.tag = '%s'
                 order by begin_time desc
                 limit 1""" % (self.TableIOVs, self.TableTagIOVs, t0, tag))
         else:
-            c.execute("""select iov_id, begin_time
+            c.execute(f"""select iov_id, {begin_time}
                 from %s
                 where begin_time < '%s' and active
                 order by begin_time desc
@@ -348,8 +355,9 @@ class IOVFolder:
         assert not (t is None and iovid is None)
         db = self.DB
         c = db._cursor()
+        begin_time = self.time_column_cast("begin_time")
         if t == None:
-            c.execute("""select begin_time 
+            c.execute(f"""select {begin_time} 
                             from %s    
                             where iov_id = %s""" % (self.TableIOVs, iovid))
             tup = c.fetchone()
@@ -357,30 +365,14 @@ class IOVFolder:
             t = tup[0]
         #print ' next iov, t= %s' %t
         if tag:
-            #print ' next iov, using tag = %s ' %tag
-            tagsql ="""select i.iov_id, i.begin_time
-                from %s i, %s ti
-                where begin_time > '%s' and
-                    ti.tag = '%s' and
-                    ti.iov_id = i.iov_id
-                order by begin_time limit 1""" % (self.TableIOVs, self.TableTagIOVs, t, tag)
-            #print ' next iov, sql = \n %s \n' %tagsql
-
-            c.execute("""select i.iov_id, i.begin_time
+            c.execute(f"""select i.iov_id, i.{begin_time}
                 from %s i, %s ti
                 where begin_time > '%s' and
                     ti.tag = '%s' and
                     ti.iov_id = i.iov_id
                 order by begin_time limit 1""" % (self.TableIOVs, self.TableTagIOVs, t, tag))
         else:
-            sql = """select iov_id, begin_time
-                from %s
-                where active and begin_time > '%s'
-                order by begin_time
-                limit 1""" % (self.TableIOVs, t)
-            #print ' next iov, no tag sql= \n %s \n ' %sql
-            
-            c.execute("""select iov_id, begin_time
+            c.execute(f"""select iov_id, {begin_time}
                 from %s
                 where active and begin_time > '%s'
                 order by begin_time
@@ -393,8 +385,9 @@ class IOVFolder:
     def getIOV(self, iovid, tag=None):
         c = self.DB._cursor()
 
+        begin_time = self.time_column_cast("begin_time")
         if tag:
-            tagsql = """select i.begin_time
+            tagsql = f"""select i.{begin_time}
                 from %s i, %s ti
                 where 
                     ti.tag = '%s' and
@@ -403,12 +396,7 @@ class IOVFolder:
             c.execute(tagsql)
         
         else:
-            sql ="""select begin_time
-                from %s
-                where iov_id = %s""" % (self.TableIOVs, iovid)
-            #print ' getIOV, no tag sql = \n %s \n' %sql
-                
-            c.execute("""select begin_time
+            c.execute(f"""select {begin_time}
                 from %s
                 where iov_id = %s""" % (self.TableIOVs, iovid))
 
@@ -421,18 +409,6 @@ class IOVFolder:
         #print ' getIOV, t0= %s, t1=%s' %(t0,t1)
         return t0, t1 
 
-    def getIOV_old(self, iovid, tag=None):
-        c = self.DB._cursor()
-        c.execute("""select begin_time
-                from %s
-                where iov_id = %s""" % (self.TableIOVs, iovid))
-        tup = c.fetchone()
-        if not tup:   return None, None
-        t0 = tup[0]
-        next_iov, t1 = self.getNextIOV(t0, tag=tag)
-        #print ' getIOV, t0= %s, t1=%s' %(t0,t1)
-        return t0, t1 
-        
     def getTuple(self, t, channel=0, tag=None):
         "returns the tuple for given time and single channel"
         data = self.getData(t, tag=tag)
@@ -532,10 +508,11 @@ class IOVFolder:
 
     def findIOV(self, t, tag=None):
         tt = self.numericToDBTime(t)
+        begin_time = self.time_column_cast("begin_time")
         c = self.DB._cursor()
         if tag:
-            c.execute("""
-                select i.iov_id, i.begin_time
+            c.execute(f"""
+                select i.iov_id, i.{begin_time}
                     from %s i, %s ti
                     where i.begin_time <= '%s' and
                         ti.iov_id = i.iov_id and
@@ -543,7 +520,7 @@ class IOVFolder:
                     order by i.begin_time desc, i.iov_id desc
                     limit 1""" % (self.TableIOVs, self.TableTagIOVs, tt, tag))
         else:
-            c.execute("""select iov_id, begin_time
+            c.execute(f"""select iov_id, {begin_time}
                 from %s
                 where begin_time <= '%s' and active
                 order by begin_time desc, iov_id desc
@@ -608,38 +585,6 @@ class IOVFolder:
             
         return lst
        
-        """ old code
-        iovData=[]
-        iovsTags = []       
-        t0=''
-        t1=''
-        c = self.DB._cursor()
-    
-        if tagval:
-            sql = " select iov_id,tag from %s where tag='%s' "%(self.TableTagIOVs,tagval)
-            c.execute(sql)
-            tagdata = c.fetchall()
-            if tagdata:
-                for aval in tagdata:
-                    iovid,tag=aval
-                    iovsTags.append(iovid)                      
-            
-        c.execute("select distinct(iov_id),begin_time from %s order by begin_time" %(self.TableIOVs))
-        data = c.fetchall()
-        if data:
-            for aval in data:
-                iov = aval[0]
-                if tagval and iov not in iovsTags:
-                    continue
-                    
-                t0 =  aval[1]
-                next_iov, t1 =  self.getNextIOV(t0)
-                iovData.append( (iov,t0,t1))
-                
-        return iovData
-        """
-        
-
     def createTag(self, tag, comments=''):
         c = self.DB._cursor()
         c.execute("""
@@ -667,14 +612,8 @@ class IOVFolder:
     def _insertSnapshot(self, t, data, cursor):
         # data is a dictionary {channel -> tuple}
         c = cursor
-        #try:
-            #sql = "insert into %s(begin_time) values ('%s')" %(self.TableIOVs, t,)
-
         c.execute("insert into %s(begin_time) values ('%s')" %
                 (self.TableIOVs, t,))
-        #except:
-        #    msg = 'MSG: %s %s<br>SQL statement: %s' % (sys.exc_type, sys.exc_info()[1], sql)
-        #    print '%s ' %msg
 
         c.execute("select lastval()")
         iov = c.fetchone()[0]

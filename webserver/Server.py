@@ -141,9 +141,13 @@ class IOVRequestHandler(WPHandler):
         return time.mktime(dt.timetuple()) + float(dt.microsecond)/1000000
         
     def to_timestamp(self, t):
-        if t is None:   return None
-        if not isinstance(t, (int, float)):
-            t = time.mktime(t.timetuple()) + float(t.microsecond)/1000000
+        if t is None:   
+            pass
+        elif isinstance(t, datetime):
+            t = t.timestamp()
+        else:
+            assert isinstance(t, (int, float))
+            t = float(t)
         return t
             
     def data(self, req, relpath, f=None, tag=None, t=None, i=None, **args):
