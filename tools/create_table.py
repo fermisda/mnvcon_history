@@ -59,6 +59,8 @@ tname = args[1]
 if namespace is None:
     if "." in tname:
         namespace, tname = tname.split(".", 1)
+    else:
+        namespace = "public"
 
 ctypes = []
 for w in args[2:]:
