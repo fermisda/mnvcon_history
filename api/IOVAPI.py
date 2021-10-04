@@ -11,7 +11,7 @@ Version = "$Id: IOVAPI.py,v 1.33 2016/02/02 20:11:02 ivm Exp $"
 TimeTypes = [
     ("i",        "bigint"),
     ("f",        "double precision"),
-    ("t",        "timestamp"),
+    ("t",        "timestamp without time zone"),
     ("tz",       "timestamp with time zone")
 ]
 
