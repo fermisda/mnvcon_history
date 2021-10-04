@@ -59,12 +59,12 @@ class   IOVCache:
 """
 
 class IOVDB:
-    def __init__(self, db = None, connstr = None, namespace = 'public',
+    def __init__(self, db = None, connstr = None, namespace = None,
             role = None,
             cache = None):
         assert not (db == None and connstr == None)
         self.Connstr = connstr
-        self.Namespace = namespace
+        self.Namespace = namespace or "public"
         self.Role = role
         if db:
             self.DB = db
