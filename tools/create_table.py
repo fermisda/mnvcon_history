@@ -9,15 +9,16 @@ options:
     -U <user>
     -w <password>
     -n <namespace>       default "public"
+       alternatively, the namespace can be specified as part of folder_name, e.g.: my_namespace.my_folder
     
     -t - time column type. Accepted values are:
          t  - time with the DB implied time zone 
          tz - time with explicit time zone (default)
          f  - floating point
          i  - long integer
-    -c - force create, drop existing table
-    -R <user>,... - DB users to grant read permissions to
-    -W <user>,... - DB users to grant write permissions to
+    -c - force create, drop existing tables
+    -R <db user>,... - DB users to grant read permissions to
+    -W <db user>,... - DB users to grant write permissions to
 """
 
 host = None
