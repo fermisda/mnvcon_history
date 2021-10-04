@@ -55,7 +55,7 @@ while line:
         try:    x = int(x)
         except:
             try:    x = float(x)
-            except: x = None
+            except: pass
         row.append(x)
     data[channel] = tuple(row)
     line = csv_file.readline()
