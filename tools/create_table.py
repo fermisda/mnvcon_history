@@ -71,9 +71,9 @@ for u in grants_r:
 for u in grants_w:
     grants[u] = grants.get(u, '') + 'w'
     
-print("Creating folder {tname} in namespace {namespace} with columns:")
+print("Creating folder %s in namespace %s with columns:" % (tname, namespace))
 for n, t in ctypes:
-    print(n,t)
+    print("   ", n,t)
 
 
 db = IOVDB(connstr=dbcon, namespace=namespace)
