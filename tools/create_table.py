@@ -8,7 +8,7 @@ options:
     -p <port>
     -U <user>
     -w <password>
-    -n <namespce>       default "public"
+    -n <namespace>       default "public"
     
     -t - time column type. Accepted values are:
          t  - time with the DB implied time zone 
