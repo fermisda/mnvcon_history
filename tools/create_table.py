@@ -74,6 +74,8 @@ for u in grants_w:
 print("Creating folder %s in namespace %s with columns:" % (tname, namespace))
 for n, t in ctypes:
     print("   ", n,t)
+if drop_existing:
+    print("Will drop existing folder")
 
 
 db = IOVDB(connstr=dbcon, namespace=namespace)
