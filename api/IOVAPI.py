@@ -11,7 +11,7 @@ Version = "$Id: IOVAPI.py,v 1.33 2016/02/02 20:11:02 ivm Exp $"
 TimeTypes = [
     ("i",        "bigint"),
     ("f",        "double precision"),
-    ("t",        "timestamp without time zone"),
+    ("t",        "timestamp"),
     ("tz",       "timestamp with time zone")
 ]
 
@@ -120,6 +120,10 @@ class IOVDB:
         assert time_type in TimeType_to_DB
         colnames = [cn for cn, ct in columns_and_types]
         f = self.openFolder(name, colnames)
+        if f is not None and not drop_existing:
+            raise RuntimeError("Folder already exists. Use drop_existing parameter to drop and recreate")
+        else:
+            f = IOVFolder(self, name)
         f._createTables(columns_and_types, time_type, drop_existing, grants)
         return self.openFolder(name, colnames)      # reopen as existing
 

@@ -10,8 +10,8 @@ options:
     -w <password>
     
     -t - time column type. Accepted values are:
-         t  - time with the DB implied time zone (default)
-         tz - time with explicit time zone
+         t  - time with the DB implied time zone 
+         tz - time with explicit time zone (default)
          f  - floating point
          i  - long integer
     -c - force create, drop existing table
@@ -27,7 +27,7 @@ columns = []
 grants_r = []
 grants_w = []
 drop_existing = False
-time_type = "timestamp"
+time_type = "tz"
 
 dbcon = []
 
