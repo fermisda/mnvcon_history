@@ -8,6 +8,7 @@ options:
     -p <port>
     -U <user>
     -w <password>
+    -n <namespce>       default "public"
     
     -t - time column type. Accepted values are:
          t  - time with the DB implied time zone 
@@ -31,25 +32,25 @@ time_type = "tz"
 
 dbcon = []
 
-opts, args = getopt.getopt(sys.argv[1:], 'h:U:w:p:cR:W:t:')
+opts, args = getopt.getopt(sys.argv[1:], 'h:U:w:p:cR:W:t:n:')
 
 if len(args) < 3 or args[0] == 'help':
     print(Usage)
     sys.exit(0)
-
-for opt, val in opts:
-    if opt == '-h':         dbcon.append("host=%s" % (val,))
-    elif opt == '-p':       dbcon.append("port=%s" % (int(val),))
-    elif opt == '-U':       dbcon.append("user=%s" % (val,))
-    elif opt == '-w':       dbcon.append("password=%s" % (val,))
-    elif opt == '-c':       drop_existing = True
-    elif opt == '-R':       grants_r = val.split(',')
-    elif opt == '-W':       grants_w = val.split(',')
-    elif opt == '-t':       time_type = val
-                                
-                            
     
+opts = dict(opts)
+dbcon = []
+if "-h" in opts:    dbcon.append("host=%s" % (opts["-h"],))
+if "-p" in opts:    dbcon.append("port=%s" % (opts["-p"],))
+if "-U" in opts:    dbcon.append("user=%s" % (opts["-U"],))
+if "-w" in opts:    dbcon.append("password=%s" % (opts["-w"],))
 
+drop_existing = "-c" in opts
+if "-R" in opts:    grants_r = opts["-R"].split(',')
+if "-W" in opts:    grants_w = opts["-W"].split(',')
+time_type = opts.get("-t", "tz")
+namespace = opts.get("-n", "public")
+                                
 dbcon.append("dbname=%s" % (args[0],))
 
 dbcon = ' '.join(dbcon)
@@ -66,7 +67,7 @@ for u in grants_r:
 for u in grants_w:
     grants[u] = grants.get(u, '') + 'w'
 
-db = IOVDB(connstr=dbcon)
+db = IOVDB(connstr=dbcon, namespace=namespace)
 t = db.createFolder(tname, ctypes, 
     time_type = time_type, 
     grants = grants, 
