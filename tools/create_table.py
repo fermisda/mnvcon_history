@@ -49,12 +49,16 @@ drop_existing = "-c" in opts
 if "-R" in opts:    grants_r = opts["-R"].split(',')
 if "-W" in opts:    grants_w = opts["-W"].split(',')
 time_type = opts.get("-t", "tz")
-namespace = opts.get("-n", "public")
+namespace = opts.get("-n")
                                 
 dbcon.append("dbname=%s" % (args[0],))
 
 dbcon = ' '.join(dbcon)
 tname = args[1]
+
+if namespace is None:
+    if "." in tname:
+        namespace, tname = tname.split(".", 1)
 
 ctypes = []
 for w in args[2:]:
