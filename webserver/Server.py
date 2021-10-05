@@ -383,7 +383,7 @@ class IOVServerApp(WPApp):
     def iovdb(self):
         if self.DBMgr is None:	# under uwsgi, create self.DBMgr at runtime, not in constructor.
             self.DBMgr = DBConnectionManager(self.Config)
-        return IOVDB(self.DBMgr.connect(), cache = self.IOVCache)
+        return IOVDB(self.DBMgr.connect(), cache = self.IOVCache, namespace=self.DBMgr.Namespace)
 
     def destroy(self):
         pass

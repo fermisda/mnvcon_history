@@ -1,4 +1,4 @@
-VERSION = 6.5
+VERSION = 6.6
 
 PRODUCT = mnvcon
 DESTDIR = $(HOME)/build/$(PRODUCT)
