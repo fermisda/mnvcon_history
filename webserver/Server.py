@@ -8,6 +8,7 @@ from LRUCache import LRUCache
 import urllib.request, urllib.parse, urllib.error
 from wsdbtools import ConnectionPool
 from Version import Version
+from Version import Version as __version__
 
 import sys
 
