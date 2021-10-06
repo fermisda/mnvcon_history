@@ -18,46 +18,6 @@ TimeTypes = [
 TimeType_to_DB = dict(TimeTypes)
 TimeType_from_DB = dict( [(v, k) for k, v in TimeTypes] )
 
-
-""" comment out
-class   IOVCache:
-    def __init__(self, n_to_keep = 1):
-        self.Cache = {}     # {folder_name:[iovs]}
-        self.NToKeep = n_to_keep
-        self.Lock = threading.RLock()
-        
-    def getSnapshot(self, iov, tag, folder):
-        self.Lock.acquire()
-        folder_name = folder.Name
-        found = None
-        ifound = None
-        
-        folder_cache = self.Cache.get(folder_name,[])
-        for i, s in enumerate(folder_cache):
-            if s.iovid() == iov and s.Tag == tag:
-                found = s
-                ifound = i
-                break
-        if found:        
-            # temporarily remove from cache
-            folder_cache = folder_cache[:ifound] + folder_cache[ifound+1:]
-            #print ' found cache'
-        else:
-            # if not found, call the folder
-            self.Lock.release()
-            data = folder.getSnapshotByIOV(iov, tag=tag)
-            found = data
-            self.Lock.acquire()
-        if found:
-            folder_cache = [found] + folder_cache
-            self.Cache[folder_name] = folder_cache[:self.NToKeep]
-        self.Lock.release()
-        return found
-        
-    def clear(self):
-        self.Cache = {}
-"""
-
 class IOVDB:
     def __init__(self, db = None, connstr = None, namespace = None,
             role = None,
@@ -76,18 +36,13 @@ class IOVDB:
     def flushCache(self):
         self.Cache.clear()
 
-    """ comment out
-    def getCached(self, folder, iovid, tag):
-        s = None
-        if self.Cache:
-            s = self.Cache[(folder, iovid, tag)]
-        return s
-        
-    def putInCache(self, folder, iovid, tag, s):
-        if self.Cache:
-            self.Cache[(folder, iovid, tag)] = s
-    """
-    
+    def split_spec(self, table, namespace=None):
+        if "." in table:
+            return tuple(table.split(".", 1))
+        else:
+            namespace = namespace or self.Namespace
+            return table, namespace
+
     def reconnect(self):
         assert self.Connstr != None
         self.DB = psycopg2.connect(self.Connstr)
@@ -127,7 +82,7 @@ class IOVDB:
         f._createTables(columns_and_types, time_type, drop_existing, grants)
         return self.openFolder(name, colnames)      # reopen as existing
 
-    def getFolders (self):
+    def getFolders(self):
 
         folders =[]
 
@@ -153,16 +108,15 @@ class IOVDB:
         return self.DB.cursor()
 
 
-    def _tablesExist(self, *tlist):
-        tables = DbDig(self.DB).tables(self.Namespace)
+    def _tableExists(self, spec):
+        namesace, table = self.split_spec(spec)
+        tables = DbDig(self.DB).tables(namespace)
         if not tables:  return False
-        tables = [t.lower() for t in tables]
-        for t in tlist:
-            if not t.lower() in tables: return False
-        return True
+        return table.lower() in {t.lower() for t in tables}
         
-    def _columns(self, table):
-        columns = DbDig(self.DB).columns(self.Namespace, table)
+    def _columns(self, spec):
+        namesace, table = self.split_spec(spec)
+        columns = DbDig(self.DB).columns(namespace, table)
         #print self.Namespace, table
         return [(c[0], c[1]) for c in columns]
         
@@ -250,25 +204,28 @@ class UTC(tzinfo):
 
 
 class IOVFolder:
-    def __init__(self, db, name, columns = '*'):
+    def __init__(self, db, name, columns = '*', namespace = None):
         self.DB = db
+        namespace, name = db.split_spec(name, namespace)
         self.Name = name
-        self.TableIOVs = '%s_iovs' % (self.Name,)
-        self.TableData = '%s_data' % (self.Name,)
-        self.TableTags = '%s_tags' % (self.Name,)
-        self.TableTagIOVs = '%s_tag_iovs' % (self.Name,)
+        self.Namespace = namespace
+        self.TablePrefix = "%s.%s" % (self.Namespace, self.Name)
+        self.TableIOVs = '%s_iovs' % (self.TablePrefix,)
+        self.TableData = '%s_data' % (self.TablePrefix,)
+        self.TableTags = '%s_tags' % (self.TablePrefix,)
+        self.TableTagIOVs = '%s_tag_iovs' % (self.TablePrefix,)
         self.Columns = columns
         if self.exists():
-                if self.Columns == '*':
-                    self.Columns = self._getDataColumns()
-                self.Colstr = ','.join(self.Columns)
-                self.Cache = self.DB.Cache
-                self.TimeType = None
-                self.WithTimeZone = False
-                col_dict = dict(self.DB._columns(self.TableIOVs))
-                typ = col_dict["begin_time"]
-                assert typ in TimeType_from_DB, "Unknown timestamp column type '%s' in the database" % (typ,)
-                self.TimeType = TimeType_from_DB[typ]
+            if self.Columns == '*':
+                self.Columns = self._getDataColumns()
+            self.Colstr = ','.join(self.Columns)
+            self.Cache = self.DB.Cache
+            self.TimeType = None
+            self.WithTimeZone = False
+            col_dict = dict(self.DB._columns(self.TableIOVs))
+            typ = col_dict["begin_time"]
+            assert typ in TimeType_from_DB, "Unknown timestamp column type '%s' in the database" % (typ,)
+            self.TimeType = TimeType_from_DB[typ]
 
     def time_column_cast(self, column):
         if self.TimeType == "t":
@@ -276,7 +233,8 @@ class IOVFolder:
         return column
 
     def exists(self):
-        return self.DB._tablesExist(self.TableData, self.TableIOVs)
+        return self.DB._tableExists(self.TableData) \
+            and self.DB._tableExists(self.TableIOVs)
 
     def _getDataColumns(self):
         columns = self.DB._columns(self.TableData)
