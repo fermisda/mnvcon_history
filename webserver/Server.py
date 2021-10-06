@@ -394,4 +394,16 @@ def create_application(config_file=None):
 
 if "IOV_SERVER_CFG" in os.environ:
     application = create_application()
+    
+if __name__ == "__main__":
+    import getopt, sys, os
+    opts, args = getopt.getopt(sys.argv[1:], "c:p:],")
+    opts = dict(opts)
+    port = int(opts.get("-p", 8080))
+    config = opts.get("-c") or os.environ.get("IOV_SERVER_CFG")
+    if not config:
+        print("Configuration must be specified either with -c or IOV_SERVER_CFG env. variable")
+        sys.exit(2)
+    print("Starting on port", port)
+    create_application(config).run_server(port)
         

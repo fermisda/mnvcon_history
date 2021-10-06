@@ -41,7 +41,7 @@ class IOVDB:
             return tuple(table.split(".", 1))
         else:
             namespace = namespace or self.Namespace
-            return table, namespace
+            return namespace, table
 
     def reconnect(self):
         assert self.Connstr != None
@@ -109,13 +109,13 @@ class IOVDB:
 
 
     def _tableExists(self, spec):
-        namesace, table = self.split_spec(spec)
+        namespace, table = self.split_spec(spec)
         tables = DbDig(self.DB).tables(namespace)
         if not tables:  return False
         return table.lower() in {t.lower() for t in tables}
         
     def _columns(self, spec):
-        namesace, table = self.split_spec(spec)
+        namespace, table = self.split_spec(spec)
         columns = DbDig(self.DB).columns(namespace, table)
         #print self.Namespace, table
         return [(c[0], c[1]) for c in columns]
@@ -207,6 +207,7 @@ class IOVFolder:
     def __init__(self, db, name, columns = '*', namespace = None):
         self.DB = db
         namespace, name = db.split_spec(name, namespace)
+        #print("namespace, name from spec:", namespace, name)
         self.Name = name
         self.Namespace = namespace
         self.TablePrefix = "%s.%s" % (self.Namespace, self.Name)
@@ -647,7 +648,7 @@ class IOVFolder:
                     iov_id      bigserial   primary key,
                     begin_time  %(time_type)s,
                     active      boolean    default 'true');
-                create index %(iovs_table)s_begin_time_inx on %(iovs_table)s(begin_time);
+                create index %(name)s_begin_time_inx on %(iovs_table)s(begin_time);
 
                 create table %(tags_table)s (
                     tag         text    primary key,
@@ -667,6 +668,7 @@ class IOVFolder:
                     %(columns)s,
                     primary key(__iov_id, channel)); """ % \
                     {
+                        'name':self.Name,
                         'data_table':self.TableData, 'iovs_table':self.TableIOVs,
                         'tags_table':self.TableTags, 'tag_iovs_table':self.TableTagIOVs,
                         'columns':columns, 'time_type':time_type
