@@ -1,3 +1,0 @@
-[
-    {% for t in tags %}"{{t}}"{{ ',' if not loop.last }}{% endfor %}
-]
